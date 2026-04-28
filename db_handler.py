@@ -189,13 +189,13 @@ def waitlist_customer(item_id: str = None, customer_id: str = None) -> int:
     """
 
     query = "SELECT MAX(place_in_line) FROM waitlist WHERE item_id = ?"
-    value = (item_id)
+    value = (item_id,)
     cur.execute(query, value)
-    line_num = cur.fetchone()
+    line_num = cur.fetchone()[0]
     if line_num is None:
         line_num = 1
     else:
-        line_num = line_num[0] + 1
+        line_num = line_num + 1
 
     query = "INSERT INTO waitlist(item_id, customer_id, place_in_line) VALUES(?, ?, ?)"
     value = (item_id, customer_id, line_num)
