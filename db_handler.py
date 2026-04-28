@@ -281,12 +281,34 @@ def get_filtered_items(filter_attributes: Item = None,
         value = attribute.strip().split(": ")[1]
         # print(f"key: {key}, value:{value}")
         attribute_dict[key] = value
-    print(attribute_dict)
-    exit()
+    if len(attribute_dict) == 0 and use_patterns == False and min_price == -1 and max_price == -1 and min_start_year == -1 and max_start_year == -1:
+        return []
 
     execute_values = []
 
     query2 = "\nWHERE "
+    if min_price != -1 and max_price != -1 and min_price <= max_price:
+        query2 += "(i_current_price <= ? AND i_current_price >= ?) AND "
+        execute_values.append(f"{max_price}")
+        execute_values.append(f"{min_price}")
+    elif min_price != -1:
+        query2 += "(i_current_price >= ?) AND "
+        execute_values.append(f"{min_price}")
+    elif max_price != -1:
+        query2 += "(i_current_price <= ?) AND "
+        execute_values.append(f"{max_price}")
+
+    if min_start_year != -1 and max_start_year != -1 and min_start_year <= max_start_year:
+        query2 += "(YEAR(i_rec_start_date) <= ? AND YEAR(i_rec_start_date) >= ?) AND "
+        execute_values.append(max_start_year)
+        execute_values.append(min_start_year)
+    elif min_start_year != -1:
+        query2 += "(YEAR(i_rec_start_date) >= ?) AND "
+        execute_values.append(min_start_year)
+    elif max_start_year != -1:
+        query2 += "(YEAR(i_rec_start_date) <= ?) AND "
+        execute_values.append(max_start_year)
+
     for key, value in attribute_dict.items():
         if key == "Item ID":
             if use_patterns:
@@ -319,39 +341,19 @@ def get_filtered_items(filter_attributes: Item = None,
                 query2 += "i_manufact = ?"
             execute_values.append(f"{value}")
         elif key == "Current Price":
-            if min_price != -1 and max_price != -1 and min_price <= max_price:
-                query2 += "(i_current_price <= ? AND i_current_price >= ?)"
-                execute_values.append(f"{max_price}", f"{min_price}")
-            elif min_price != -1:
-                query2 += "(i_current_price >= ?)"
-                execute_values.append(f"{min_price}")
-            elif max_price != -1:
-                query2 += "(i_current_price <= ?)"
-                execute_values.append(f"{max_price}")
-            else:
+            if min_price == -1 and max_price == -1:
                 query2 += "i_current_price = ?"
                 execute_values.append(f"{value}")
         elif key == "Start Year":
-            if min_start_year != None and max_start_year != None and min_start_year <= max_start_year:
-                query2 += "(i_rec_start_date <= ? AND i_rec_start_date >= ?)"
-                execute_values = (max_start_year, min_start_year)
-            elif min_start_year != None:
-                query2 += "(i_rec_start_date >= ?)"
-                execute_values = (min_start_year)
-            elif max_start_year != None:
-                query2 += "(i_rec_start_date <= ?)"
-                execute_values = (max_start_year)
-            else:
+            if min_start_year == -1 and max_start_year == -1:
                 query2 += "i_rec_start_date = ?"
                 execute_values.append(f"{value}")
-            execute_values.append(f"{value}")
         elif key == "Total number of copies owned":
             query2 += "i_num_owned = ?"
             execute_values.append(f"{value}")
         query2 += " AND "
     query = "SELECT * FROM item" + query2
     query = query[:-5] + ";"
-    # print(query)
     cur.execute(query, execute_values)
     result = cur.fetchall()
     ans = []
@@ -380,16 +382,12 @@ def get_filtered_items(filter_attributes: Item = None,
             elif item_start_year == None:
                 item_start_year = ""
             elif item_num_owned != None:
-                item_start_year = item_start_year.today().year
+                item_start_year = item_start_year.year
             elif item_num_owned == None:
                 item_num_owned = ""
             elif item_brand == None:
                 item_brand = ""
             ans.append(Item(item_id, item_product_name, item_brand, item_category, item_manufacturer, item_current_price, item_start_year, item_num_owned))
-    # print(type(ans))
-    # for item in ans:
-        # print(str(item))
-    # raise NotImplementedError("you must implement this function")
     return ans
 
 # Fix the address instead of number give actual address? will think about it later
@@ -403,9 +401,7 @@ def get_filtered_customers(filter_attributes: Customer = None, use_patterns: boo
             continue
         key = attribute.strip().split(": ")[0]
         value = attribute.strip().split(": ")[1]
-        # print(f"key: {key}, value:{value}")
         attribute_dict[key] = value
-    # print(attribute_dict)
 
     execute_values = []
 
