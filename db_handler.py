@@ -436,18 +436,19 @@ def get_filtered_customers(filter_attributes: Customer = None, use_patterns: boo
 
         elif key == "Address":
             street_number, street_name, city, state, zip_code = address_splitter(value)
+            print(street_number, street_name, city, state, zip_code)
             if use_patterns:
                 query2 += "ca_street_number LIKE ? AND "
                 query2 += "ca_street_name LIKE ? AND "
                 query2 += "ca_city LIKE ? AND "
                 query2 += "ca_state LIKE ? AND "
-                query2 += "ca_zip_= LIKE"
+                query2 += "ca_zip LIKE ?"
             else:
                 query2 += "ca_street_number = ? AND "
                 query2 += "ca_street_name = ? AND "
                 query2 += "ca_city = ? AND "
                 query2 += "ca_state = ? AND "
-                query2 += "ca_zip_= ?"
+                query2 += "ca_zip = ?"
             execute_values.append(f"{street_number}")
             execute_values.append(f"{street_name}")
             execute_values.append(f"{city}")
@@ -457,7 +458,8 @@ def get_filtered_customers(filter_attributes: Customer = None, use_patterns: boo
     query = "SELECT * FROM customer JOIN customer_address ON c_current_addr_sk = ca_address_sk" + query2
     query = query[:-5] + ";"
     # print(query)
-    result = cur.execute(query, execute_values)
+    cur.execute(query, execute_values)
+    result = cur.fetchall()
     ans = []
     for item in result:
         customer_id = item[1]
