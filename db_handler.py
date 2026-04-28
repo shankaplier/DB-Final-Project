@@ -42,6 +42,8 @@ def add_item(new_item: Item = None):
 
 # Takes in the address of the customer class and returns the street_number, etc seperated
 def address_splitter(address: str):
+    if address.strip().count(",") < 2:
+        raise ValueError("Address must be in the format: 'street_number street_name, city, state zip'")
     street_number = address.strip().split(",")[0].split(" ")[0]
     street_name = " ".join(address.strip().split(",")[0].split(" ")[1:])
     city = address.strip().split(",")[1].strip()
@@ -136,7 +138,10 @@ def edit_customer(original_customer_id: str = None, new_customer: Customer = Non
                         query2 += "c_customer_id = ?"
                         execute_values.append(f"{value}")
                     elif key == "Name":
-                        first_name, last_name = value.strip().split(" ", 1)[0], value.strip().split(" ", 1)[1]
+                        name_parts = value.strip().split(" ", 1)
+                        if len(name_parts) < 2:
+                            raise ValueError("Name must include a first and last name separated by a space")
+                        first_name, last_name = name_parts[0], name_parts[1]
                         query2 += "c_first_name = ?"
                         execute_values.append(f"{first_name}")
                         query2 += ", c_last_name = ?"
