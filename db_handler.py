@@ -1,7 +1,3 @@
-from os import minor
-
-from google_crc32c import value
-
 from MARIADB_CREDS import DB_CONFIG
 from mariadb import connect
 from models.RentalHistory import RentalHistory
@@ -285,115 +281,111 @@ def get_filtered_items(filter_attributes: Item = None,
         value = attribute.strip().split(": ")[1]
         # print(f"key: {key}, value:{value}")
         attribute_dict[key] = value
-    # print(attribute_dict)
+    print(attribute_dict)
+    exit()
 
     execute_values = []
 
     query2 = "\nWHERE "
     for key, value in attribute_dict.items():
-        if (use_patterns):
-            if key == "Item ID":
+        if key == "Item ID":
+            if use_patterns:
                 query2 += "i_item_id LIKE ?"
-                execute_values.append(f"%{value}%")
-            elif key == "Product Name":
-                query2 += "i_product_name LIKE ?"
-                execute_values.append(f"%{value}%")
-            elif key == "Brand":
-                query2 += "i_brand LIKE ?"
-                execute_values.append(f"%{value}%")
-            elif key == "Category":
-                query2 += "i_category LIKE ?"
-                execute_values.append(f"%{value}%")
-            elif key == "Manufacturer":
-                query2 += "i_manufact LIKE ?"
-                execute_values.append(f"%{value}%")
-            elif key == "CurrentPrice":
-                if min_price != None and max_price != None and min_price <= max_price:
-                    query2 += "(i_current_price <= ? AND i_current_price >= ?)"
-                    execute_values.append(f"{max_price}", f"{min_price}")
-                elif min_price != None:
-                    query2 += "(i_current_price >= ?)"
-                    execute_values.append(f"{min_price}")
-                elif max_price != None:
-                    query2 += "(i_current_price <= ?)"
-                    execute_values.append(f"{max_price}")
-                else:
-                    query2 += "i_current_price = ?"
-                    execute_values.append(f"{value}")
-            elif key == "Start Year":
-                if min_start_year != None and max_start_year != None and min_start_year <= max_start_year:
-                    query2 += "(i_rec_start_date <= ? AND i_rec_start_date >= ?)"
-                    execute_values = (max_start_year, min_start_year)
-                elif min_start_year != None:
-                    query2 += "(i_rec_start_date >= ?)"
-                    execute_values = (min_start_year)
-                elif max_start_year != None:
-                    query2 += "(i_rec_start_date <= ?)"
-                    execute_values = (max_start_year)
-                else:
-                    query2 += "i_rec_start_date = ?"
-                    execute_values.append(f"{value}")
-            elif key == "Total number of copies owned":
-                query2 += "i_num_owned = ?"
-                execute_values.append(f"{value}")
-        else:
-            if key == "Item ID":
+            else:
                 query2 += "i_item_id = ?"
-                execute_values.append(f"{value}")
-            elif key == "Product Name":
+            execute_values.append(f"{value}")
+        elif key == "Product Name":
+            if use_patterns:
+                query2 += "i_product_name LIKE ?"
+            else:
                 query2 += "i_product_name = ?"
-                execute_values.append(f"{value}")
-            elif key == "Brand":
+            execute_values.append(f"{value}")
+        elif key == "Brand":
+            if use_patterns:
+                query2 += "i_brand LIKE ?"
+            else:
                 query2 += "i_brand = ?"
-                execute_values.append(f"{value}")
-            elif key == "Category":
+            execute_values.append(f"{value}")
+        elif key == "Category":
+            if use_patterns:
+                query2 += "i_category LIKE ?"
+            else:
                 query2 += "i_category = ?"
-                execute_values.append(f"{value}")
-            elif key == "Manufacturer":
+            execute_values.append(f"{value}")
+        elif key == "Manufacturer":
+            if use_patterns:
+                query2 += "i_manufact LIKE ?"
+            else:
                 query2 += "i_manufact = ?"
+            execute_values.append(f"{value}")
+        elif key == "Current Price":
+            if min_price != -1 and max_price != -1 and min_price <= max_price:
+                query2 += "(i_current_price <= ? AND i_current_price >= ?)"
+                execute_values.append(f"{max_price}", f"{min_price}")
+            elif min_price != -1:
+                query2 += "(i_current_price >= ?)"
+                execute_values.append(f"{min_price}")
+            elif max_price != -1:
+                query2 += "(i_current_price <= ?)"
+                execute_values.append(f"{max_price}")
+            else:
+                query2 += "i_current_price = ?"
                 execute_values.append(f"{value}")
-            elif key == "CurrentPrice":
-                if min_price != None and max_price != None and min_price <= max_price:
-                    query2 += "(i_current_price <= ? AND i_current_price >= ?)"
-                    execute_values.append(f"{max_price}", f"{min_price}")
-                elif min_price != None:
-                    query2 += "(i_current_price >= ?)"
-                    execute_values.append(f"{min_price}")
-                elif max_price != None:
-                    query2 += "(i_current_price <= ?)"
-                    execute_values.append(f"{max_price}")
-                else:
-                    query2 += "i_current_price = ?"
-                    execute_values.append(f"{value}")
-            elif key == "Start Year":
-                if min_start_year != None and max_start_year != None and min_start_year <= max_start_year:
-                    query2 += "(i_rec_start_date <= ? AND i_rec_start_date >= ?)"
-                    execute_values = (max_start_year, min_start_year)
-                elif min_start_year != None:
-                    query2 += "(i_rec_start_date >= ?)"
-                    execute_values = (min_start_year)
-                elif max_start_year != None:
-                    query2 += "(i_rec_start_date <= ?)"
-                    execute_values = (max_start_year)
-                else:
-                    query2 += "i_rec_start_date = ?"
-                    execute_values.append(f"{value}")
+        elif key == "Start Year":
+            if min_start_year != None and max_start_year != None and min_start_year <= max_start_year:
+                query2 += "(i_rec_start_date <= ? AND i_rec_start_date >= ?)"
+                execute_values = (max_start_year, min_start_year)
+            elif min_start_year != None:
+                query2 += "(i_rec_start_date >= ?)"
+                execute_values = (min_start_year)
+            elif max_start_year != None:
+                query2 += "(i_rec_start_date <= ?)"
+                execute_values = (max_start_year)
+            else:
+                query2 += "i_rec_start_date = ?"
                 execute_values.append(f"{value}")
-            elif key == "Total number of copies owned":
-                query2 += "i_num_owned = ?"
-                execute_values.append(f"{value}")
+            execute_values.append(f"{value}")
+        elif key == "Total number of copies owned":
+            query2 += "i_num_owned = ?"
+            execute_values.append(f"{value}")
         query2 += " AND "
     query = "SELECT * FROM item" + query2
     query = query[:-5] + ";"
     # print(query)
     cur.execute(query, execute_values)
     result = cur.fetchall()
+    ans = []
     if result == []:
-        print("No results were found")
+        return []
     else:
-        for row in result:
-            print(str(row))
-        ans = [Item(item[1], item[3], item[4], item[6], item[7], item[8], str(item[2].today().year), item[9]) for item in result]
+        for item in result:
+            item_id = item[1]
+            item_product_name = item[3]
+            item_brand = item[4]
+            item_category = item[6]
+            item_manufacturer = item[7]
+            item_current_price = item[8]
+            item_start_year = item[2]
+            item_num_owned = item[9]
+            if item_id == None:
+                item_id = ""
+            elif item_product_name == None:
+                item_product_name = ""
+            elif item_category == None:
+                item_category = ""
+            elif item_manufacturer == None:
+                item_manufacturer = ""
+            elif item_current_price == None:
+                item_current_price = ""
+            elif item_start_year == None:
+                item_start_year = ""
+            elif item_num_owned != None:
+                item_start_year = item_start_year.today().year
+            elif item_num_owned == None:
+                item_num_owned = ""
+            elif item_brand == None:
+                item_brand = ""
+            ans.append(Item(item_id, item_product_name, item_brand, item_category, item_manufacturer, item_current_price, item_start_year, item_num_owned))
     # print(type(ans))
     # for item in ans:
         # print(str(item))
@@ -419,40 +411,34 @@ def get_filtered_customers(filter_attributes: Customer = None, use_patterns: boo
 
     query2 = "\nWHERE "
     for key, value in attribute_dict.items():
-        if (use_patterns):
-            if key == "Customer ID":
-                query2 += "c_customer_id LIKE ?"
-                execute_values.append(f"%{value}%")
-            elif key == "Name":
-                first_name, last_name = value.strip().split(" ")[0], value.strip().split(" ")[1]
-                print(first_name, last_name)
-                query2 += "c_first_name LIKE ?"
-                execute_values.append(f"%{first_name}%")
-                query2 += "c_last_name LIKE ?"
-                execute_values.append(f"%{last_name}%")
-            elif key == "Email":
-                query2 += "c_email_address LIKE ?"
-                execute_values.append(f"%{value}%")
-            elif key == "Address":
-                query2 += "c_current_addr_sk = ?"
-                execute_values.append(f"{customer_address_resolver(filter_attributes)}")
-        else:
-            if key == "Customer ID":
+        if key == "Customer ID":
+            if use_patterns:
+                query2 += "c_cutomer_id LIKE ?"
+            else:
                 query2 += "c_customer_id = ?"
-                execute_values.append(f"{value}")
-            elif key == "Name":
-                first_name, last_name = value.strip().split(" ")[0], value.strip().split(" ")[1]
-                print(first_name, last_name)
+            execute_values.append(f"{value}")
+        elif key == "Name":
+            first_name, last_name = value.strip().split(" ")[0], value.strip().split(" ")[1]
+            if use_patterns:
+                query2 += "c_first_name LIKE ?"
+                query2 += "c_last_name LIKE ?"
+            else:
                 query2 += "c_first_name = ?"
-                execute_values.append(f"{first_name}")
                 query2 += "c_last_name = ?"
-                execute_values.append(f"{last_name}")
-            elif key == "Email":
+            execute_values.append(f"{first_name}")
+            execute_values.append(f"{last_name}")
+        elif key == "Email":
+            if use_patterns:
+                query2 += "c_email_address LIKE ?"
+            else:
                 query2 += "c_email_address = ?"
-                execute_values.append(f"{value}")
-            elif key == "Address":
+            execute_values.append(f"{value}")
+        elif key == "Address":
+            if use_patterns:
+                query2 += "c_current_addr_sk LIKE ?"
+            else:
                 query2 += "c_current_addr_sk = ?"
-                execute_values.append(f"{customer_address_resolver(filter_attributes)}")
+            execute_values.append(f"{customer_address_resolver(filter_attributes)}")
         query2 += " AND "
     query = "SELECT * FROM customer" + query2
     query = query[:-5] + ";"
