@@ -393,7 +393,7 @@ def get_filtered_items(filter_attributes: Item = None,
     else:
         for row in result:
             print(str(row))
-        ans = [Item(item[1], item[3], item[4], item[6], item[7], item[8], str(item[2].today().year) if item, item[9]) for item in result]
+        ans = [Item(item[1], item[3], item[4], item[6], item[7], item[8], str(item[2].today().year), item[9]) for item in result]
     # print(type(ans))
     # for item in ans:
         # print(str(item))
