@@ -41,7 +41,7 @@ def add_item(new_item: Item = None):
     # raise NotImplementedError("you must implement this function")
 
 # Takes in the address of the customer class and returns the street_number, etc seperated
-def address_splitter(address: str) -> str:
+def address_splitter(address: str):
     street_number = address.strip().split(",")[0].split(" ")[0]
     street_name = " ".join(address.strip().split(",")[0].split(" ")[1:])
     city = address.strip().split(",")[1].strip()
@@ -64,7 +64,7 @@ def customer_address_resolver(new_customer: Customer) -> int:
     address_result = cur.fetchall()
 
     address_sk = 0
-    if address_result == []:
+    if not address_result:
         query = "SELECT MAX(ca_address_sk) FROM customer_address;"
         cur.execute(query)
         address_sk = cur.fetchone()[0] + 1
@@ -94,7 +94,7 @@ def add_customer(new_customer: Customer = None):
         address_sk = customer_address_resolver(new_customer)
         query = """INSERT INTO customer(c_customer_sk, c_customer_id, c_first_name, c_last_name, c_email_address,  c_current_addr_sk)
                     VALUES(?, ?, ?, ?, ?, ?)"""
-        values = (next_sk, new_customer.customer_id, new_customer.name.strip().split(" ")[0], new_customer.name.strip().split(" ")[1], new_customer.email, address_sk)
+        values = (next_sk, new_customer.customer_id, new_customer.name.strip().split(" ", 1)[0], new_customer.name.strip().split(" ", 1)[1], new_customer.email, address_sk)
         cur.execute(query, values)
         save_changes()
     except Exception as e:
@@ -118,7 +118,7 @@ def edit_customer(original_customer_id: str = None, new_customer: Customer = Non
         cur.execute(query, value)
         result = cur.fetchone()
 
-        if result == None:
+        if result is None:
             # Continue with editing the original customer
             attribute_dict = dict()
             for attribute in str(new_customer).split("\n"):
@@ -136,7 +136,7 @@ def edit_customer(original_customer_id: str = None, new_customer: Customer = Non
                         query2 += "c_customer_id = ?"
                         execute_values.append(f"{value}")
                     elif key == "Name":
-                        first_name, last_name = value.strip().split(" ")[0], value.strip().split(" ")[1]
+                        first_name, last_name = value.strip().split(" ", 1)[0], value.strip().split(" ", 1)[1]
                         query2 += "c_first_name = ?"
                         execute_values.append(f"{first_name}")
                         query2 += ", c_last_name = ?"
@@ -265,7 +265,6 @@ def extract_attributes(filter_attributes) -> dict:
             continue
         key = attribute.strip().split(": ")[0]
         value = attribute.strip().split(": ")[1]
-        # print(f"key: {key}, value:{value}")
         attribute_dict[key] = value
     return attribute_dict
 
@@ -358,7 +357,7 @@ def get_filtered_items(filter_attributes: Item = None,
     cur.execute(query, execute_values)
     result = cur.fetchall()
     ans = []
-    if result == []:
+    if not result:
         return []
     else:
         for item in result:
@@ -390,7 +389,7 @@ def get_filtered_items(filter_attributes: Item = None,
                 item_current_price = ""
             if item_start_year == None:
                 item_start_year = ""
-            if item_start_year != None:
+            else:
                 item_start_year = item_start_year.year
             if item_num_owned == None:
                 item_num_owned = ""
@@ -423,15 +422,30 @@ def get_filtered_customers(filter_attributes: Customer = None, use_patterns: boo
             execute_values.append(f"{value}")
         #Maybe fix this
         elif key == "Name":
-            first_name, last_name = value.strip().split(" ")[0], value.strip().split(" ")[1]
-            if use_patterns:
-                query2 += "c_first_name LIKE ? AND "
-                query2 += "c_last_name LIKE ?"
-            else:
-                query2 += "c_first_name = ? AND "
-                query2 += "c_last_name = ?"
-            execute_values.append(f"{first_name}")
-            execute_values.append(f"{last_name}")
+            name_parts = value.strip().split()
+
+            if len(name_parts) >= 2:
+                first_name = name_parts[0]
+                last_name = " ".join(name_parts[1:])
+
+                if use_patterns:
+                    query2 += "c_first_name LIKE ? AND c_last_name LIKE ?"
+                else:
+                    query2 += "c_first_name = ? AND c_last_name = ?"
+
+                execute_values.append(first_name)
+                execute_values.append(last_name)
+
+            elif len(name_parts) == 1:
+                single_name = name_parts[0]
+
+                if use_patterns:
+                    query2 += "(c_first_name LIKE ? OR c_last_name LIKE ?)"
+                else:
+                    query2 += "(c_first_name = ? OR c_last_name = ?)"
+
+                execute_values.append(single_name)
+                execute_values.append(single_name)
         elif key == "Email":
             if use_patterns:
                 query2 += "c_email_address LIKE ?"
@@ -532,7 +546,7 @@ def get_filtered_rentals(filter_attributes: Rental = None,
         return []
 
     query2 = "\nWHERE "
-    if min_rental_date != None and max_rental_date != None:
+    if min_rental_date != None and max_rental_date != None and min_rental_date <= max_rental_date:
         query2 += "rental_date <= ? AND rental_date >= ? AND "
         execute_values.append(max_rental_date)
         execute_values.append(min_rental_date)
@@ -582,17 +596,17 @@ def get_filtered_rentals(filter_attributes: Rental = None,
         rental_date = item[2]
         due_date = item[3]
         if item_id == None:
-            item_id = "";
+            item_id = ""
         else:
             item_id = item_id.strip()
         if customer_id == None:
-            customer_id = "";
+            customer_id = ""
         else:
             customer_id = customer_id.strip()
         if rental_date == None:
-            rental_date = "";
+            rental_date = ""
         if due_date == None:
-            due_date = "";
+            due_date = ""
         ans.append(Rental(item_id, customer_id, str(rental_date), str(due_date)))
     return ans
 
@@ -616,36 +630,36 @@ def get_filtered_rental_histories(filter_attributes: RentalHistory = None,
     query2 = "\nWHERE "
 
     if min_rental_date != None and max_rental_date != None and min_rental_date <= max_rental_date:
-        query2 += "rental_date <= ? AND rental_date >= ?"
+        query2 += "rental_date <= ? AND rental_date >= ? AND "
         execute_values.append(max_rental_date)
         execute_values.append(min_rental_date)
     elif min_rental_date != None:
-        query2 += "rental_date >= ?"
+        query2 += "rental_date >= ? AND "
         execute_values.append(min_rental_date)
     elif max_rental_date != None:
-        query2 += "rental_date <= ?"
+        query2 += "rental_date <= ? AND "
         execute_values.append(max_rental_date)
 
     if min_due_date != None and max_due_date != None and min_due_date <= max_due_date:
-        query2 += "due_date <= ? AND due_date >= ?"
+        query2 += "due_date <= ? AND due_date >= ? AND "
         execute_values.append(max_due_date)
         execute_values.append(min_due_date)
     elif min_due_date != None:
-        query2 += "due_date >= ?"
+        query2 += "due_date >= ? AND "
         execute_values.append(min_due_date)
     elif max_due_date != None:
-        query2 += "due_date <= ?"
+        query2 += "due_date <= ? AND "
         execute_values.append(max_due_date)
 
     if min_return_date != None and max_return_date != None and min_return_date <= max_return_date:
-        query2 += "return_date <= ? AND return_date >= ?"
+        query2 += "return_date <= ? AND return_date >= ? AND "
         execute_values.append(max_return_date)
         execute_values.append(min_return_date)
     elif min_return_date != None:
-        query2 += "return_date >= ?"
+        query2 += "return_date >= ? AND "
         execute_values.append(min_return_date)
     elif max_return_date != None:
-        query2 += "return_date <= ?"
+        query2 += "return_date <= ? AND "
         execute_values.append(max_return_date)
 
     for key, value in attribute_dict.items():
@@ -680,19 +694,19 @@ def get_filtered_rental_histories(filter_attributes: RentalHistory = None,
         due_date = item[3]
         return_date = item[4]
         if item_id == None:
-            item_id = "";
+            item_id = ""
         else:
             item_id = item_id.strip()
         if customer_id == None:
-            customer_id = "";
+            customer_id = ""
         else:
             customer_id = customer_id.strip()
         if rental_date == None:
-            rental_date = "";
+            rental_date = ""
         if due_date == None:
-            due_date = "";
+            due_date = ""
         if return_date == None:
-            return_date = "";
+            return_date = ""
         ans.append(RentalHistory(item_id, customer_id, str(rental_date), str(due_date), str(return_date)))
     return ans
 
@@ -713,14 +727,14 @@ def get_filtered_waitlist(filter_attributes: Waitlist = None,
     query2 = "\nWHERE "
 
     if min_place_in_line != -1 and max_place_in_line != -1 and min_place_in_line <= max_place_in_line:
-        query2 += "place_in_line <= ? AND place_in_line >= ?"
+        query2 += "place_in_line <= ? AND place_in_line >= ? AND "
         execute_values.append(max_place_in_line)
         execute_values.append(min_place_in_line)
     elif min_place_in_line != -1:
-        query2 += "place_in_line >= ?"
+        query2 += "place_in_line >= ? AND "
         execute_values.append(min_place_in_line)
     elif max_place_in_line != -1:
-        query2 += "place_in_line <= ?"
+        query2 += "place_in_line <= ? AND "
         execute_values.append(max_place_in_line)
 
     for key, value in attribute_dict.items():
@@ -745,15 +759,15 @@ def get_filtered_waitlist(filter_attributes: Waitlist = None,
         customer_id = item[1]
         place_in_line = item[2]
         if item_id == None:
-            item_id = "";
+            item_id = ""
         else:
             item_id = item_id.strip()
         if customer_id == None:
-            customer_id = "";
+            customer_id = ""
         else:
             customer_id = customer_id.strip()
         if place_in_line == None:
-            place_in_line = 0;
+            place_in_line = 0
         ans.append(Waitlist(item_id, customer_id, place_in_line))
     return ans
 
