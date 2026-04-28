@@ -112,8 +112,8 @@ def edit_customer(original_customer_id: str = None, new_customer: Customer = Non
         query2 = "\nSET "
         query3 = "\nWHERE c_customer_id = ?;"
 
-        query = "SELECT * FROM customer WHERE c_customer_id = ?"
-        value = [new_customer.customer_id]
+        query = "SELECT * FROM customer WHERE c_customer_id = ? AND c_customer_id <> ?"
+        value = [new_customer.customer_id, original_customer_id]
 
         cur.execute(query, value)
         result = cur.fetchone()
@@ -230,7 +230,6 @@ def return_item(item_id: str = None, customer_id: str = None):
         query = "INSERT INTO rental_history(item_id, customer_id, rental_date, due_date, return_date) VALUES (?, ?, ?, ?, ?)"
         value = (result[0], result[1], result[2], result[3], date.today())
         cur.execute(query, value)
-        save_changes()
         query = "DELETE FROM rental WHERE item_id = ? AND customer_id = ?;"
         value = (item_id, customer_id)
         cur.execute(query, value)
@@ -281,14 +280,14 @@ def get_filtered_items(filter_attributes: Item = None,
 
     attribute_dict = extract_attributes(filter_attributes)
 
-    if len(attribute_dict) == 0 and use_patterns == False and min_price == -1 and max_price == -1 and min_start_year == -1 and max_start_year == -1:
+    if len(attribute_dict) == 0 and min_price == -1 and max_price == -1 and min_start_year == -1 and max_start_year == -1:
         return []
 
     execute_values = []
 
     query2 = "\nWHERE "
     if min_price != -1 and max_price != -1 and min_price <= max_price:
-        query2 += "(i_current_price <= ? AND i_current_price >= ?) AND "
+        query2 += "(i_current_price <= ? AND i_current_price >= ?)"
         execute_values.append(f"{max_price}")
         execute_values.append(f"{min_price}")
     elif min_price != -1:
@@ -346,7 +345,7 @@ def get_filtered_items(filter_attributes: Item = None,
                 execute_values.append(f"{value}")
         elif key == "Start Year":
             if min_start_year == -1 and max_start_year == -1:
-                query2 += "i_rec_start_date = ?"
+                query2 += "YEAR(i_rec_start_date) = ?"
                 execute_values.append(f"{value}")
         elif key == "Total number of copies owned":
             query2 += "i_num_owned = ?"
