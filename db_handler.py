@@ -262,6 +262,17 @@ def grant_extension(item_id: str = None, customer_id: str = None):
         save_changes()
     # raise NotImplementedError("you must implement this function")
 
+def extract_attributes(filter_attributes) -> dict:
+    attribute_dict = dict()
+    for attribute in str(filter_attributes).split("\n"):
+        if attribute == "":
+            continue
+        key = attribute.strip().split(": ")[0]
+        value = attribute.strip().split(": ")[1]
+        # print(f"key: {key}, value:{value}")
+        attribute_dict[key] = value
+    return attribute_dict
+
 #Test it completely
 def get_filtered_items(filter_attributes: Item = None,
                        use_patterns: bool = False,
@@ -273,14 +284,8 @@ def get_filtered_items(filter_attributes: Item = None,
     Returns a list of Item objects matching the filters.
     """
 
-    attribute_dict = dict()
-    for attribute in str(filter_attributes).split("\n"):
-        if attribute == "":
-            continue
-        key = attribute.strip().split(": ")[0]
-        value = attribute.strip().split(": ")[1]
-        # print(f"key: {key}, value:{value}")
-        attribute_dict[key] = value
+    attribute_dict = extract_attributes(filter_attributes)
+
     if len(attribute_dict) == 0 and use_patterns == False and min_price == -1 and max_price == -1 and min_start_year == -1 and max_start_year == -1:
         return []
 
@@ -390,18 +395,15 @@ def get_filtered_items(filter_attributes: Item = None,
             ans.append(Item(item_id, item_product_name, item_brand, item_category, item_manufacturer, item_current_price, item_start_year, item_num_owned))
     return ans
 
-# Fix the address instead of number give actual address? will think about it later
+#Change the query such that we natural join with customer_address and then filter on the result
 def get_filtered_customers(filter_attributes: Customer = None, use_patterns: bool = False) -> list[Customer]:
     """
     Returns a list of Customer objects matching the filters.
     """
-    attribute_dict = dict()
-    for attribute in str(filter_attributes).split("\n"):
-        if attribute == "":
-            continue
-        key = attribute.strip().split(": ")[0]
-        value = attribute.strip().split(": ")[1]
-        attribute_dict[key] = value
+    attribute_dict = extract_attributes(filter_attributes)
+
+    if len(attribute_dict) == 0:
+        return []
 
     execute_values = []
 
@@ -413,8 +415,10 @@ def get_filtered_customers(filter_attributes: Customer = None, use_patterns: boo
             else:
                 query2 += "c_customer_id = ?"
             execute_values.append(f"{value}")
+        #Maybe fix this
         elif key == "Name":
             first_name, last_name = value.strip().split(" ")[0], value.strip().split(" ")[1]
+            print(first_name, last_name)
             if use_patterns:
                 query2 += "c_first_name LIKE ?"
                 query2 += "c_last_name LIKE ?"
@@ -429,21 +433,63 @@ def get_filtered_customers(filter_attributes: Customer = None, use_patterns: boo
             else:
                 query2 += "c_email_address = ?"
             execute_values.append(f"{value}")
+
         elif key == "Address":
+            street_number, street_name, city, state, zip_code = address_splitter(value)
             if use_patterns:
-                query2 += "c_current_addr_sk LIKE ?"
+                query2 += "ca_street_number LIKE ? AND "
+                query2 += "ca_street_name LIKE ? AND "
+                query2 += "ca_city LIKE ? AND "
+                query2 += "ca_state LIKE ? AND "
+                query2 += "ca_zip_= LIKE"
             else:
-                query2 += "c_current_addr_sk = ?"
-            execute_values.append(f"{customer_address_resolver(filter_attributes)}")
+                query2 += "ca_street_number = ? AND "
+                query2 += "ca_street_name = ? AND "
+                query2 += "ca_city = ? AND "
+                query2 += "ca_state = ? AND "
+                query2 += "ca_zip_= ?"
+            execute_values.append(f"{street_number}")
+            execute_values.append(f"{street_name}")
+            execute_values.append(f"{city}")
+            execute_values.append(f"{state}")
+            execute_values.append(f"{zip_code}")
         query2 += " AND "
-    query = "SELECT * FROM customer" + query2
+    query = "SELECT * FROM customer JOIN customer_address ON c_current_addr_sk = ca_address_sk" + query2
     query = query[:-5] + ";"
     # print(query)
-    cur.execute(query, execute_values)
-    ans = [Customer(item[1], item[2] +" " + item[3], item[5], item[4]) for item in cur.fetchall()]
-    # print(type(ans))
-    for item in ans:
-        print(str(item))
+    result = cur.execute(query, execute_values)
+    ans = []
+    for item in result:
+        customer_id = item[1]
+        customer_first_name = item[2]
+        customer_last_name = item[3]
+        customer_email = item[4]
+        customer_street_number = item[7]
+        customer_street_name = item[8]
+        customer_city = item[9]
+        customer_state = item[10]
+        customer_zip_code = item[11]
+        if customer_id == None:
+            customer_id = ""
+        elif customer_first_name == None:
+            customer_first_name = ""
+        elif customer_last_name == None:
+            customer_last_name = ""
+        elif customer_email == None:
+            customer_email = ""
+        elif customer_street_number == None:
+            customer_street_number = ""
+        elif customer_street_name == None:
+            customer_street_name = ""
+        elif customer_city == None:
+            customer_city = ""
+        elif customer_state == None:
+            customer_state = ""
+        elif customer_zip_code == None:
+            customer_zip_code = ""
+
+        customer_address = customer_street_number + " " + customer_street_name + ", " + customer_city + ", " + customer_state + customer_zip_code
+        ans.append(Customer(customer_id, customer_first_name + " " + customer_last_name, customer_address, customer_email))
     return ans
 
 #Modify to add filtering based on dates
@@ -455,19 +501,37 @@ def get_filtered_rentals(filter_attributes: Rental = None,
     """
     Returns a list of Rental objects matching the filters.
     """
-    attribute_dict = dict()
-    for attribute in str(filter_attributes).split("\n"):
-        if attribute == "":
-            continue
-        key = attribute.strip().split(": ")[0]
-        value = attribute.strip().split(": ")[1]
-        # print(f"key: {key}, value:{value}")
-        attribute_dict[key] = value
-    # print(attribute_dict)
+    attribute_dict = extract_attributes(filter_attributes)
 
     execute_values = []
 
+    if len(attribute_dict) == 0 and min_rental_date == None and max_rental_date == None and min_due_date == None and max_due_date == None:
+        return []
+
     query2 = "\nWHERE "
+    if min_rental_date != None and max_rental_date != None:
+        query2 += "rental_date <= ? AND rental_date >= ? AND "
+        execute_values.append(max_rental_date)
+        execute_values.append(min_rental_date)
+    elif min_rental_date != None:
+        query2 += "rental_date >= ? AND "
+        execute_values.append(min_rental_date)
+    elif max_rental_date != None:
+        query2 += "rental_date <= ? AND "
+        execute_values.append(max_rental_date)
+
+    if min_due_date != None and max_due_date != None and min_due_date <= max_due_date:
+        query2 += "due_date <= ? AND due_date >= ? AND "
+        execute_values.append(max_due_date)
+        execute_values.append(min_due_date)
+    elif min_due_date != None:
+        query2 += "due_date >= ? AND "
+        execute_values.append(min_due_date)
+    elif max_due_date != None:
+        query2 += "due_date <= ? AND "
+        execute_values.append(max_due_date)
+
+
     for key, value in attribute_dict.items():
         if key == "Item ID":
             query2 += "item_id = ?"
@@ -476,43 +540,34 @@ def get_filtered_rentals(filter_attributes: Rental = None,
             query2 += "customer_id = ?"
             execute_values.append(f"{value}")
         elif key == "Rental Date":
-            if min_rental_date != None and max_rental_date != None and min_rental_date <= max_rental_date:
-                query2 += "rental_date <= ? AND rental_date >= ?"
-                execute_values.append(max_rental_date, min_rental_date)
-            elif min_rental_date != None:
-                query2 += "rental_date >= ?"
-                execute_values.append(min_rental_date)
-            elif max_rental_date != None:
-                query2 += "rental_date <= ?"
-                execute_values.append(max_rental_date)
-            else:
+            if max_rental_date == None and min_rental_date == None:
                 query2 += "rental_date = ?"
                 execute_values.append(value)
         elif key == "Due Date":
-            if min_due_date != None and max_due_date != None and min_due_date <= max_due_date:
-                query2 += "due_date <= ? AND due_date >= ?"
-                execute_values.append(max_due_date, min_due_date)
-            elif min_due_date != None:
-                query2 += "due_date >= ?"
-                execute_values.append(min_due_date)
-            elif max_due_date != None:
-                query2 += "due_date <= ?"
-                execute_values.append(max_due_date)
-            else:
+            if max_due_date == None and min_due_date == None:
                 query2 += "due_date = ?"
                 execute_values.append(value)
         query2 += " AND "
     query = "SELECT * FROM rental" + query2
     query = query[:-5] + ";"
-    # print(query)
     cur.execute(query, execute_values)
-    ans = [Rental(item[0], item[1], str(item[2]), str(item[3])) for item in cur.fetchall()]
-    # print(type(ans))
-    # for item in ans:
-    #     print(str(item))
+    ans = []
+    result = cur.fetchall()
+    for item in result:
+        item_id = item[0]
+        customer_id = item[1]
+        rental_date = item[2]
+        due_date = item[3]
+        if item_id == None:
+            item_id = "";
+        elif customer_id == None:
+            customer_id = "";
+        elif rental_date == None:
+            rental_date = "";
+        elif due_date == None:
+            due_date = "";
+        ans.append(Rental(item_id, customer_id, str(rental_date), str(due_date)))
     return ans
-    # raise NotImplementedError("you must implement this function")
-
 
 def get_filtered_rental_histories(filter_attributes: RentalHistory = None,
                                   min_rental_date: str = None,
@@ -524,19 +579,48 @@ def get_filtered_rental_histories(filter_attributes: RentalHistory = None,
     """
     Returns a list of RentalHistory objects matching the filters.
     """
-    attribute_dict = dict()
-    for attribute in str(filter_attributes).split("\n"):
-        if attribute == "":
-            continue
-        key = attribute.strip().split(": ")[0]
-        value = attribute.strip().split(": ")[1]
-        # print(f"key: {key}, value:{value}")
-        attribute_dict[key] = value
-    # print(attribute_dict)
+    attribute_dict = extract_attributes(filter_attributes)
+
+    if len(attribute_dict) == 0 and min_rental_date == None and max_rental_date == None and min_due_date == None and max_due_date == None and min_return_date == None and max_return_date == None:
+        return []
 
     execute_values = []
 
     query2 = "\nWHERE "
+
+    if min_rental_date != None and max_rental_date != None and min_rental_date <= max_rental_date:
+        query2 += "rental_date <= ? AND rental_date >= ?"
+        execute_values.append(max_rental_date)
+        execute_values.append(min_rental_date)
+    elif min_rental_date != None:
+        query2 += "rental_date >= ?"
+        execute_values.append(min_rental_date)
+    elif max_rental_date != None:
+        query2 += "rental_date <= ?"
+        execute_values.append(max_rental_date)
+
+    if min_due_date != None and max_due_date != None and min_due_date <= max_due_date:
+        query2 += "due_date <= ? AND due_date >= ?"
+        execute_values.append(max_due_date)
+        execute_values.append(min_due_date)
+    elif min_due_date != None:
+        query2 += "due_date >= ?"
+        execute_values.append(min_due_date)
+    elif max_due_date != None:
+        query2 += "due_date <= ?"
+        execute_values.append(max_due_date)
+
+    if min_return_date != None and max_return_date != None and min_return_date <= max_return_date:
+        query2 += "return_date <= ? AND return_date >= ?"
+        execute_values.append(max_return_date)
+        execute_values.append(min_return_date)
+    elif min_return_date != None:
+        query2 += "return_date >= ?"
+        execute_values.append(min_return_date)
+    elif max_return_date != None:
+        query2 += "return_date <= ?"
+        execute_values.append(max_return_date)
+
     for key, value in attribute_dict.items():
         if key == "Item ID":
             query2 += "item_id = ?"
@@ -545,55 +629,40 @@ def get_filtered_rental_histories(filter_attributes: RentalHistory = None,
             query2 += "customer_id = ?"
             execute_values.append(f"{value}")
         elif key == "Rental Date":
-            if min_rental_date != None and max_rental_date != None and min_rental_date <= max_rental_date:
-                query2 += "rental_date <= ? AND rental_date >= ?"
-                execute_values.append(max_rental_date, min_rental_date)
-            elif min_rental_date != None:
-                query2 += "rental_date >= ?"
-                execute_values.append(min_rental_date)
-            elif max_rental_date != None:
-                query2 += "rental_date <= ?"
-                execute_values.append(max_rental_date)
-            else:
+            if min_rental_date == None and max_rental_date == None:
                 query2 += "rental_date = ?"
                 execute_values.append(value)
         elif key == "Due Date":
-            if min_due_date != None and max_due_date != None and min_due_date <= max_due_date:
-                query2 += "due_date <= ? AND due_date >= ?"
-                execute_values.append(max_due_date, min_due_date)
-            elif min_due_date != None:
-                query2 += "due_date >= ?"
-                execute_values.append(min_due_date)
-            elif max_due_date != None:
-                query2 += "due_date <= ?"
-                execute_values.append(max_due_date)
-            else:
+            if min_due_date == None and max_due_date == None:
                 query2 += "due_date = ?"
                 execute_values.append(value)
         elif key == "Return Date":
-            if min_return_date != None and max_return_date != None and min_return_date <= max_return_date:
-                query2 += "return_date <= ? AND return_date >= ?"
-                execute_values.append(max_return_date, min_return_date)
-            elif min_return_date != None:
-                query2 += "return_date >= ?"
-                execute_values.append(min_return_date)
-            elif max_return_date != None:
-                query2 += "return_date <= ?"
-                execute_values.append(max_return_date)
-            else:
+            if min_return_date == None and max_return_date == None:
                 query2 += "return_date = ?"
                 execute_values.append(value)
         query2 += " AND "
     query = "SELECT * FROM rental_history" + query2
     query = query[:-5] + ";"
-    # print(query)
-    cur.execute(query, execute_values)
-    ans = [RentalHistory(item[0], item[1], str(item[2]), str(item[3]), str(item[4])) for item in cur.fetchall()]
-    # print(type(ans))
-    # for item in ans:
-    #     print(str(item))
+    ans = []
+    result = cur.fetchall()
+    for item in result:
+        item_id = item[0]
+        customer_id = item[1]
+        rental_date = item[2]
+        due_date = item[3]
+        return_date = item[4]
+        if item_id == None:
+            item_id = "";
+        elif customer_id == None:
+            customer_id = "";
+        elif rental_date == None:
+            rental_date = "";
+        elif due_date == None:
+            due_date = "";
+        elif return_date == None:
+            return_date = "";
+        ans.append(RentalHistory(item_id, customer_id, str(rental_date), str(due_date), str(return_date)))
     return ans
-    # raise NotImplementedError("you must implement this function")
 
 
 def get_filtered_waitlist(filter_attributes: Waitlist = None,
@@ -602,19 +671,26 @@ def get_filtered_waitlist(filter_attributes: Waitlist = None,
     """
     Returns a list of Waitlist objects matching the filters.
     """
-    attribute_dict = dict()
-    for attribute in str(filter_attributes).split("\n"):
-        if attribute == "":
-            continue
-        key = attribute.strip().split(": ")[0]
-        value = attribute.strip().split(": ")[1]
-        # print(f"key: {key}, value:{value}")
-        attribute_dict[key] = value
-    # print(attribute_dict)
+    attribute_dict = extract_attributes(filter_attributes)
 
     execute_values = []
 
+    if len(attribute_dict) == 0 and min_place_in_line == -1 and max_place_in_line == -1:
+        return []
+
     query2 = "\nWHERE "
+
+    if min_place_in_line != -1 and max_place_in_line != -1 and min_place_in_line <= max_place_in_line:
+        query2 += "place_in_line <= ? AND place_in_line >= ?"
+        execute_values.append(max_place_in_line)
+        execute_values.append(min_place_in_line)
+    elif min_place_in_line != -1:
+        query2 += "place_in_line >= ?"
+        execute_values.append(min_place_in_line)
+    elif max_place_in_line != -1:
+        query2 += "place_in_line <= ?"
+        execute_values.append(max_place_in_line)
+
     for key, value in attribute_dict.items():
         if key == "Item ID":
             query2 += "item_id = ?"
@@ -623,29 +699,26 @@ def get_filtered_waitlist(filter_attributes: Waitlist = None,
             query2 += "customer_id = ?"
             execute_values.append(f"{value}")
         elif key == "Place in line":
-            if min_place_in_line != -1 and max_place_in_line != -1 and min_place_in_line <= max_place_in_line:
-                query2 += "place_in_line <= ? AND place_in_line >= ?"
-                execute_values.append(max_place_in_line, min_place_in_line)
-            elif min_place_in_line != -1:
-                query2 += "place_in_line >= ?"
-                execute_values.append(min_place_in_line)
-            elif max_place_in_line != -1:
-                query2 += "place_in_line <= ?"
-                execute_values.append(max_place_in_line)
-            else:
+            if min_place_in_line == -1 and max_place_in_line == -1:
                 query2 += "place_in_line = ?"
                 execute_values.append(value)
         query2 += " AND "
     query = "SELECT * FROM waitlist" + query2
     query = query[:-5] + ";"
-    # print(query)
-    cur.execute(query, execute_values)
-    ans = [Waitlist(item[0], item[1], str(item[2])) for item in cur.fetchall()]
-    # print(type(ans))
-    # for item in ans:
-    #     print(str(item))
+    ans = []
+    result = cur.fetchall()
+    for item in result:
+        item_id = item[0]
+        customer_id = item[1]
+        place_in_line = item[2]
+        if item_id == None:
+            item_id = "";
+        elif customer_id == None:
+            customer_id = "";
+        elif place_in_line == None:
+            place_in_line = "";
+        ans.append(Waitlist(item_id, customer_id, str(place_in_line)))
     return ans
-    # raise NotImplementedError("you must implement this function")
 
 
 def number_in_stock(item_id: str = None) -> int:
