@@ -58,16 +58,13 @@ def customer_address_resolver(new_customer: Customer) -> int:
             WHERE ca_street_number = ? AND ca_street_name = ? AND ca_city = ? AND ca_state = ? AND ca_zip = ?"""
 
     street_number, street_name, city, state, zip_code = address_splitter(new_customer.address)
-    # print(f"street number: {street_number}, street_name: {street_name}, city: {city}, state: {state}, zip: {zip_code}")
     values = (street_number, street_name, city, state, zip_code)
 
     cur.execute(query, values)
     address_result = cur.fetchall()
-    # print(address_result[0])
 
     address_sk = 0
     if address_result == []:
-        print("No address was found")
         query = "SELECT MAX(ca_address_sk) FROM customer_address;"
         cur.execute(query)
         address_sk = cur.fetchone()[0] + 1
@@ -76,7 +73,6 @@ def customer_address_resolver(new_customer: Customer) -> int:
         cur.execute(query, values)
         save_changes()
     else:
-        print("Address was found")
         address_sk = address_result[0][0]
     return address_sk
 
@@ -132,34 +128,34 @@ def edit_customer(original_customer_id: str = None, new_customer: Customer = Non
                 value = attribute.strip().split(": ")[1]
                 attribute_dict[key] = value
 
-            execute_values = []
+            if len(attribute_dict) != 0:
+                execute_values = []
 
-            for key, value in attribute_dict.items():
-                if key == "Customer ID":
-                    query2 += "c_customer_id = ?"
-                    execute_values.append(f"{value}")
-                elif key == "Name":
-                    first_name, last_name = value.strip().split(" ")[0], value.strip().split(" ")[1]
-                    print(first_name, last_name)
-                    query2 += "c_first_name = ? "
-                    execute_values.append(f"{first_name}")
-                    query2 += ", c_last_name = ?"
-                    execute_values.append(f"{last_name}")
-                elif key == "Email":
-                    query2 += "c_email_address = ?"
-                    execute_values.append(f"{value}")
-                elif key == "Address":
-                    address_sk = customer_address_resolver(new_customer)
-                    query2 += "c_current_addr_sk = ?"
-                    execute_values.append(f"{address_sk}")
-                query2 += " , "
-            query2 = query2[:-3]
-            execute_values.append(original_customer_id)
-            query = query1 + query2 + query3
-            print(query)
-            print(execute_values)
-            cur.execute(query, execute_values)
-            save_changes()
+                for key, value in attribute_dict.items():
+                    if key == "Customer ID":
+                        query2 += "c_customer_id = ?"
+                        execute_values.append(f"{value}")
+                    elif key == "Name":
+                        first_name, last_name = value.strip().split(" ")[0], value.strip().split(" ")[1]
+                        query2 += "c_first_name = ?"
+                        execute_values.append(f"{first_name}")
+                        query2 += ", c_last_name = ?"
+                        execute_values.append(f"{last_name}")
+                    elif key == "Email":
+                        query2 += "c_email_address = ?"
+                        execute_values.append(f"{value}")
+                    elif key == "Address":
+                        address_sk = customer_address_resolver(new_customer)
+                        query2 += "c_current_addr_sk = ?"
+                        execute_values.append(f"{address_sk}")
+                    query2 += " , "
+                query2 = query2[:-3]
+                execute_values.append(original_customer_id)
+                query = query1 + query2 + query3
+                cur.execute(query, execute_values)
+                save_changes()
+            else:
+                print(f"no values have been edited")
         else:
             #Display error message and quit
             print(f"customer was found with id {new_customer.customer_id}, please enter a unique customer id to edit")
@@ -376,22 +372,32 @@ def get_filtered_items(filter_attributes: Item = None,
             item_num_owned = item[9]
             if item_id == None:
                 item_id = ""
-            elif item_product_name == None:
+            else:
+                item_id = item_id.strip()
+            if item_product_name == None:
                 item_product_name = ""
-            elif item_category == None:
+            else:
+                item_product_name = item_product_name.strip()
+            if item_category == None:
                 item_category = ""
-            elif item_manufacturer == None:
+            else:
+                item_category = item_category.strip()
+            if item_manufacturer == None:
                 item_manufacturer = ""
-            elif item_current_price == None:
+            else:
+                item_manufacturer = item_manufacturer.strip()
+            if item_current_price == None:
                 item_current_price = ""
-            elif item_start_year == None:
+            if item_start_year == None:
                 item_start_year = ""
-            elif item_num_owned != None:
+            if item_start_year != None:
                 item_start_year = item_start_year.year
-            elif item_num_owned == None:
+            if item_num_owned == None:
                 item_num_owned = ""
-            elif item_brand == None:
+            if item_brand == None:
                 item_brand = ""
+            else:
+                item_brand = item_brand.strip()
             ans.append(Item(item_id, item_product_name, item_brand, item_category, item_manufacturer, item_current_price, item_start_year, item_num_owned))
     return ans
 
@@ -411,19 +417,18 @@ def get_filtered_customers(filter_attributes: Customer = None, use_patterns: boo
     for key, value in attribute_dict.items():
         if key == "Customer ID":
             if use_patterns:
-                query2 += "c_cutomer_id LIKE ?"
+                query2 += "c_customer_id LIKE ?"
             else:
                 query2 += "c_customer_id = ?"
             execute_values.append(f"{value}")
         #Maybe fix this
         elif key == "Name":
             first_name, last_name = value.strip().split(" ")[0], value.strip().split(" ")[1]
-            print(first_name, last_name)
             if use_patterns:
                 query2 += "c_first_name LIKE ? AND "
                 query2 += "c_last_name LIKE ?"
             else:
-                query2 += "c_first_name = ?"
+                query2 += "c_first_name = ? AND "
                 query2 += "c_last_name = ?"
             execute_values.append(f"{first_name}")
             execute_values.append(f"{last_name}")
@@ -436,7 +441,6 @@ def get_filtered_customers(filter_attributes: Customer = None, use_patterns: boo
 
         elif key == "Address":
             street_number, street_name, city, state, zip_code = address_splitter(value)
-            print(street_number, street_name, city, state, zip_code)
             if use_patterns:
                 query2 += "ca_street_number LIKE ? AND "
                 query2 += "ca_street_name LIKE ? AND "
@@ -457,7 +461,6 @@ def get_filtered_customers(filter_attributes: Customer = None, use_patterns: boo
         query2 += " AND "
     query = "SELECT * FROM customer JOIN customer_address ON c_current_addr_sk = ca_address_sk" + query2
     query = query[:-5] + ";"
-    print(query)
     cur.execute(query, execute_values)
     result = cur.fetchall()
     ans = []
@@ -473,24 +476,42 @@ def get_filtered_customers(filter_attributes: Customer = None, use_patterns: boo
         customer_zip_code = item[11]
         if customer_id == None:
             customer_id = ""
-        elif customer_first_name == None:
+        else:
+            customer_id = customer_id.strip()
+        if customer_first_name == None:
             customer_first_name = ""
-        elif customer_last_name == None:
+        else:
+            customer_first_name = customer_first_name.strip()
+        if customer_last_name == None:
             customer_last_name = ""
-        elif customer_email == None:
+        else:
+            customer_last_name = customer_last_name.strip()
+        if customer_email == None:
             customer_email = ""
-        elif customer_street_number == None:
+        else:
+            customer_email = customer_email.strip()
+        if customer_street_number == None:
             customer_street_number = ""
-        elif customer_street_name == None:
+        else:
+            customer_street_number = customer_street_number.strip()
+        if customer_street_name == None:
             customer_street_name = ""
-        elif customer_city == None:
+        else:
+            customer_street_name = customer_street_name.strip()
+        if customer_city == None:
             customer_city = ""
-        elif customer_state == None:
+        else:
+            customer_city = customer_city.strip()
+        if customer_state == None:
             customer_state = ""
-        elif customer_zip_code == None:
+        else:
+            customer_state = customer_state.strip()
+        if customer_zip_code == None:
             customer_zip_code = ""
+        else:
+            customer_zip_code = customer_zip_code.strip()
 
-        customer_address = customer_street_number + " " + customer_street_name + ", " + customer_city + ", " + customer_state + customer_zip_code
+        customer_address = customer_street_number + " " + customer_street_name + ", " + customer_city + ", " + customer_state + " " + customer_zip_code
         ans.append(Customer(customer_id, customer_first_name + " " + customer_last_name, customer_address, customer_email))
     return ans
 
@@ -562,11 +583,15 @@ def get_filtered_rentals(filter_attributes: Rental = None,
         due_date = item[3]
         if item_id == None:
             item_id = "";
-        elif customer_id == None:
+        else:
+            item_id = item_id.strip()
+        if customer_id == None:
             customer_id = "";
-        elif rental_date == None:
+        else:
+            customer_id = customer_id.strip()
+        if rental_date == None:
             rental_date = "";
-        elif due_date == None:
+        if due_date == None:
             due_date = "";
         ans.append(Rental(item_id, customer_id, str(rental_date), str(due_date)))
     return ans
@@ -646,6 +671,7 @@ def get_filtered_rental_histories(filter_attributes: RentalHistory = None,
     query = "SELECT * FROM rental_history" + query2
     query = query[:-5] + ";"
     ans = []
+    cur.execute(query, execute_values)
     result = cur.fetchall()
     for item in result:
         item_id = item[0]
@@ -655,13 +681,17 @@ def get_filtered_rental_histories(filter_attributes: RentalHistory = None,
         return_date = item[4]
         if item_id == None:
             item_id = "";
-        elif customer_id == None:
+        else:
+            item_id = item_id.strip()
+        if customer_id == None:
             customer_id = "";
-        elif rental_date == None:
+        else:
+            customer_id = customer_id.strip()
+        if rental_date == None:
             rental_date = "";
-        elif due_date == None:
+        if due_date == None:
             due_date = "";
-        elif return_date == None:
+        if return_date == None:
             return_date = "";
         ans.append(RentalHistory(item_id, customer_id, str(rental_date), str(due_date), str(return_date)))
     return ans
@@ -708,6 +738,7 @@ def get_filtered_waitlist(filter_attributes: Waitlist = None,
     query = "SELECT * FROM waitlist" + query2
     query = query[:-5] + ";"
     ans = []
+    cur.execute(query, execute_values)
     result = cur.fetchall()
     for item in result:
         item_id = item[0]
@@ -715,11 +746,15 @@ def get_filtered_waitlist(filter_attributes: Waitlist = None,
         place_in_line = item[2]
         if item_id == None:
             item_id = "";
-        elif customer_id == None:
+        else:
+            item_id = item_id.strip()
+        if customer_id == None:
             customer_id = "";
-        elif place_in_line == None:
-            place_in_line = "";
-        ans.append(Waitlist(item_id, customer_id, str(place_in_line)))
+        else:
+            customer_id = customer_id.strip()
+        if place_in_line == None:
+            place_in_line = 0;
+        ans.append(Waitlist(item_id, customer_id, place_in_line))
     return ans
 
 
@@ -786,7 +821,6 @@ def close_connection():
     save_changes()
     cur.close()
     conn.close()
-    exit()
 
     # raise NotImplementedError("you must implement this function")
 
