@@ -287,7 +287,7 @@ def get_filtered_items(filter_attributes: Item = None,
 
     query2 = "\nWHERE "
     if min_price != -1 and max_price != -1 and min_price <= max_price:
-        query2 += "(i_current_price <= ? AND i_current_price >= ? AND )"
+        query2 += "(i_current_price <= ? AND i_current_price >= ?) AND "
         execute_values.append(f"{max_price}")
         execute_values.append(f"{min_price}")
     elif min_price != -1:
