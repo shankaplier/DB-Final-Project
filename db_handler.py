@@ -420,7 +420,7 @@ def get_filtered_customers(filter_attributes: Customer = None, use_patterns: boo
             first_name, last_name = value.strip().split(" ")[0], value.strip().split(" ")[1]
             print(first_name, last_name)
             if use_patterns:
-                query2 += "c_first_name LIKE ?"
+                query2 += "c_first_name LIKE ? AND "
                 query2 += "c_last_name LIKE ?"
             else:
                 query2 += "c_first_name = ?"
@@ -457,7 +457,7 @@ def get_filtered_customers(filter_attributes: Customer = None, use_patterns: boo
         query2 += " AND "
     query = "SELECT * FROM customer JOIN customer_address ON c_current_addr_sk = ca_address_sk" + query2
     query = query[:-5] + ";"
-    # print(query)
+    print(query)
     cur.execute(query, execute_values)
     result = cur.fetchall()
     ans = []
